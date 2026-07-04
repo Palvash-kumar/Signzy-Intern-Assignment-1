@@ -1,0 +1,22 @@
+{
+  "name": "api-orchestrator",
+  "version": "1.0.0",
+  "description": "Configuration-driven Low-Code API Orchestration Platform",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "mock": "node src/mock/mock-server.js",
+    "test": "node test/run.js"
+  },
+  "keywords": ["api", "orchestration", "low-code", "configuration-driven"],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.0",
+    "jsonschema": "^1.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "uuid": "^10.0.0",
+    "winston": "^3.14.0",
+    "dotenv": "^16.4.5"
+  }
+}

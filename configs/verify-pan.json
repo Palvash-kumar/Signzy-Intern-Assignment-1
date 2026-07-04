@@ -1,0 +1,61 @@
+{
+  "id": "verify-pan",
+  "version": "1.0",
+  "endpoint": {
+    "method": "POST",
+    "path": "/verify-pan"
+  },
+  "auth": {
+    "type": "api_key"
+  },
+  "rateLimit": {
+    "windowMs": 60000,
+    "max": 50
+  },
+  "request": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "pan_number": {
+          "type": "string",
+          "pattern": "^[A-Z]{5}[0-9]{4}[A-Z]$",
+          "description": "PAN card number (e.g., ABCDE1234F)"
+        }
+      },
+      "required": ["pan_number"],
+      "additionalProperties": false
+    }
+  },
+  "steps": [
+    {
+      "id": "call_vendor_a",
+      "type": "api_call",
+      "vendor": {
+        "url": "{{MOCK_SERVER}}/vendor-a/pan",
+        "method": "POST",
+        "headers": {
+          "X-Vendor-Key": "vendor-a-secret"
+        }
+      },
+      "requestMapping": {
+        "pan": "$.body.pan_number"
+      },
+      "retries": 2,
+      "retryDelay": 1000,
+      "timeout": 5000,
+      "cache": {
+        "ttl": 300
+      }
+    }
+  ],
+  "response": {
+    "mapping": {
+      "verified": "$.steps.call_vendor_a.response.is_valid",
+      "name": "$.steps.call_vendor_a.response.name",
+      "pan_number": "$.steps.call_vendor_a.response.pan_number",
+      "category": "$.steps.call_vendor_a.response.category",
+      "status": "$.steps.call_vendor_a.response.status"
+    },
+    "statusCode": 200
+  }
+}

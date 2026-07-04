@@ -1,0 +1,95 @@
+{
+  "id": "document-verification",
+  "version": "1.0",
+  "endpoint": {
+    "method": "POST",
+    "path": "/verify-document"
+  },
+  "auth": {
+    "type": "jwt"
+  },
+  "rateLimit": {
+    "windowMs": 60000,
+    "max": 20
+  },
+  "request": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "document_type": {
+          "type": "string",
+          "enum": ["pan_card", "aadhaar", "passport", "driving_license"],
+          "description": "Type of document to verify"
+        },
+        "document_data": {
+          "type": "string",
+          "description": "Base64 encoded document image"
+        },
+        "selfie_data": {
+          "type": "string",
+          "description": "Base64 encoded selfie image"
+        }
+      },
+      "required": ["document_type", "document_data"],
+      "additionalProperties": false
+    }
+  },
+  "steps": [
+    {
+      "id": "parallel_verification",
+      "type": "parallel",
+      "steps": [
+        {
+          "id": "ocr_extraction",
+          "type": "api_call",
+          "vendor": {
+            "url": "{{MOCK_SERVER}}/vendor-c/ocr",
+            "method": "POST"
+          },
+          "requestMapping": {
+            "document_type": "$.body.document_type",
+            "document_data": "$.body.document_data"
+          },
+          "retries": 1,
+          "timeout": 10000
+        },
+        {
+          "id": "fraud_detection",
+          "type": "api_call",
+          "vendor": {
+            "url": "{{MOCK_SERVER}}/vendor-c/fraud-detection",
+            "method": "POST"
+          },
+          "requestMapping": {
+            "document_data": "$.body.document_data"
+          },
+          "retries": 1,
+          "timeout": 10000
+        },
+        {
+          "id": "face_match",
+          "type": "api_call",
+          "vendor": {
+            "url": "{{MOCK_SERVER}}/vendor-c/face-match",
+            "method": "POST"
+          },
+          "requestMapping": {
+            "selfie_data": "$.body.selfie_data",
+            "document_photo": "$.body.document_data"
+          },
+          "retries": 1,
+          "timeout": 10000
+        }
+      ]
+    }
+  ],
+  "response": {
+    "mapping": {
+      "ocr_result": "$.steps.ocr_extraction.response",
+      "fraud_check": "$.steps.fraud_detection.response",
+      "face_match": "$.steps.face_match.response",
+      "overall_status": "$.steps.fraud_detection.response.status"
+    },
+    "statusCode": 200
+  }
+}
