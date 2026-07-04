@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Orchestrator — Visual Workflow Editor</title>
+  <meta name="description" content="Low-code API orchestration platform with visual workflow builder and AI-powered config generation">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- Top Navigation Bar                          -->
+  <!-- ═══════════════════════════════════════════ -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-brand">
+      <div class="logo">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="6" fill="url(#logo-gradient)"/>
+          <path d="M8 14L12 10L16 14L20 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M8 18L12 14L16 18L20 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+          <defs>
+            <linearGradient id="logo-gradient" x1="0" y1="0" x2="28" y2="28">
+              <stop stop-color="#6366f1"/>
+              <stop offset="1" stop-color="#8b5cf6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>API Orchestrator</span>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost" id="btn-metrics" title="View Metrics">📊 Metrics</button>
+      <button class="btn btn-ghost" id="btn-docs" title="API Docs">📋 Docs</button>
+      <button class="btn btn-primary" id="btn-new-workflow">+ New Workflow</button>
+    </div>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- Main Layout: Sidebar + Canvas + Panel       -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="app-layout">
+    <!-- Sidebar: Workflow List -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h3>Workflows</h3>
+        <button class="btn btn-sm btn-ghost" id="btn-refresh" title="Refresh">🔄</button>
+      </div>
+      <div class="workflow-list" id="workflow-list">
+        <!-- Populated by JS -->
+      </div>
+      <div class="sidebar-footer">
+        <div class="ai-chat-trigger" id="ai-chat-trigger">
+          <span class="ai-icon">🤖</span>
+          <span>Ask AI to create a workflow...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Canvas Area -->
+    <main class="canvas-area" id="canvas-area">
+      <!-- Welcome State -->
+      <div class="welcome-state" id="welcome-state">
+        <div class="welcome-icon">⚡</div>
+        <h2>API Orchestration Platform</h2>
+        <p>Select a workflow to edit, or create a new one</p>
+        <div class="welcome-actions">
+          <button class="btn btn-primary btn-lg" id="btn-welcome-new">+ Create Workflow</button>
+          <button class="btn btn-secondary btn-lg" id="btn-welcome-ai">🤖 Generate with AI</button>
+        </div>
+        <div class="quick-stats" id="quick-stats"></div>
+      </div>
+
+      <!-- Workflow Canvas (hidden until a workflow is selected) -->
+      <div class="workflow-canvas hidden" id="workflow-canvas">
+        <div class="canvas-toolbar">
+          <div class="workflow-info">
+            <input type="text" class="workflow-title-input" id="workflow-title" placeholder="workflow-id">
+            <span class="workflow-version" id="workflow-version">v1.0</span>
+            <span class="workflow-endpoint" id="workflow-endpoint"></span>
+          </div>
+          <div class="canvas-actions">
+            <button class="btn btn-ghost btn-sm" id="btn-test">▶ Test</button>
+            <button class="btn btn-ghost btn-sm" id="btn-ai-validate">🤖 Validate</button>
+            <button class="btn btn-ghost btn-sm" id="btn-ai-improve">💡 Improve</button>
+            <button class="btn btn-ghost btn-sm" id="btn-ai-tests">🧪 Gen Tests</button>
+            <button class="btn btn-ghost btn-sm" id="btn-view-json">{ } JSON</button>
+            <button class="btn btn-primary btn-sm" id="btn-save">💾 Save & Deploy</button>
+          </div>
+        </div>
+
+        <!-- Flow Diagram -->
+        <div class="flow-container" id="flow-container">
+          <!-- Endpoint Node -->
+          <div class="flow-section">
+            <div class="section-label">Endpoint</div>
+            <div class="flow-node endpoint-node" id="endpoint-node">
+              <div class="node-icon">🌐</div>
+              <div class="node-content">
+                <select id="endpoint-method" class="node-select">
+                  <option value="POST">POST</option>
+                  <option value="GET">GET</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                </select>
+                <input type="text" id="endpoint-path" class="node-input" placeholder="/api-path">
+              </div>
+              <div class="node-badges">
+                <select id="auth-type" class="badge-select">
+                  <option value="none">No Auth</option>
+                  <option value="api_key">API Key</option>
+                  <option value="jwt">JWT</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-connector">↓</div>
+
+          <!-- Validation Node -->
+          <div class="flow-section">
+            <div class="section-label">Request Validation</div>
+            <div class="flow-node validation-node" id="validation-node">
+              <div class="node-icon">✅</div>
+              <div class="node-content">
+                <textarea id="request-schema" class="node-textarea" placeholder='{"type":"object","properties":{},"required":[]}'></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-connector">↓</div>
+
+          <!-- Steps Container -->
+          <div class="flow-section">
+            <div class="section-label">
+              Orchestration Steps
+              <button class="btn btn-ghost btn-xs" id="btn-add-step">+ Add Step</button>
+            </div>
+            <div class="steps-container" id="steps-container">
+              <!-- Steps are rendered by JS -->
+            </div>
+          </div>
+
+          <div class="flow-connector">↓</div>
+
+          <!-- Response Mapping -->
+          <div class="flow-section">
+            <div class="section-label">Response Mapping</div>
+            <div class="flow-node response-node" id="response-node">
+              <div class="node-icon">📤</div>
+              <div class="node-content">
+                <textarea id="response-mapping" class="node-textarea" placeholder='{"field":"$.steps.step_id.response.field"}'></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Right Panel (context-sensitive) -->
+    <aside class="right-panel hidden" id="right-panel">
+      <div class="panel-header">
+        <h3 id="panel-title">Details</h3>
+        <button class="btn btn-ghost btn-sm" id="btn-close-panel">✕</button>
+      </div>
+      <div class="panel-content" id="panel-content">
+        <!-- Dynamic content -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- AI Chat Modal                                -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="ai-modal">
+    <div class="modal ai-modal">
+      <div class="modal-header">
+        <h3>🤖 AI Workflow Generator</h3>
+        <button class="btn btn-ghost btn-sm modal-close" id="ai-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-chat" id="ai-chat">
+          <div class="ai-message ai-bot">
+            <p>Describe the API workflow you want to create in plain English. For example:</p>
+            <p class="ai-example">"Create an API that validates a PAN using Vendor A and, if successful, fetches GST details from Vendor B."</p>
+          </div>
+        </div>
+        <div class="ai-input-area">
+          <textarea id="ai-input" class="ai-input" placeholder="Describe your API workflow..." rows="3"></textarea>
+          <button class="btn btn-primary" id="btn-ai-generate">Generate ✨</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- JSON Viewer Modal                            -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="json-modal">
+    <div class="modal json-modal">
+      <div class="modal-header">
+        <h3>Workflow Configuration (JSON)</h3>
+        <div>
+          <button class="btn btn-ghost btn-sm" id="btn-copy-json">📋 Copy</button>
+          <button class="btn btn-ghost btn-sm modal-close" id="json-modal-close">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <pre class="json-viewer" id="json-viewer"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- Test Runner Modal                            -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="modal-overlay hidden" id="test-modal">
+    <div class="modal test-modal">
+      <div class="modal-header">
+        <h3>▶ Test Workflow</h3>
+        <button class="btn btn-ghost btn-sm modal-close" id="test-modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="test-section">
+          <label>Request Headers</label>
+          <textarea id="test-headers" class="test-textarea" rows="3">{"X-API-Key": "test-api-key-12345"}</textarea>
+        </div>
+        <div class="test-section">
+          <label>Request Body</label>
+          <textarea id="test-body" class="test-textarea" rows="5">{}</textarea>
+        </div>
+        <button class="btn btn-primary btn-block" id="btn-run-test">▶ Send Request</button>
+        <div class="test-section">
+          <label>Response</label>
+          <pre class="test-response" id="test-response">Click "Send Request" to test</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

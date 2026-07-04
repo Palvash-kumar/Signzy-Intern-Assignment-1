@@ -1,0 +1,78 @@
+{
+  "id": "validate-aadhaar",
+  "version": "1.0",
+  "endpoint": {
+    "method": "POST",
+    "path": "/validate-aadhaar"
+  },
+  "auth": {
+    "type": "api_key"
+  },
+  "rateLimit": {
+    "windowMs": 60000,
+    "max": 30
+  },
+  "request": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "aadhaar_number": {
+          "type": "string",
+          "pattern": "^[0-9]{12}$",
+          "description": "12-digit Aadhaar number"
+        }
+      },
+      "required": ["aadhaar_number"],
+      "additionalProperties": false
+    }
+  },
+  "steps": [
+    {
+      "id": "validate_with_vendor_a",
+      "type": "api_call",
+      "vendor": {
+        "url": "{{MOCK_SERVER}}/vendor-a/aadhaar",
+        "method": "POST"
+      },
+      "requestMapping": {
+        "aadhaar": "$.body.aadhaar_number"
+      },
+      "retries": 2,
+      "retryDelay": 1000,
+      "timeout": 5000
+    },
+    {
+      "id": "fetch_gst_conditional",
+      "type": "conditional",
+      "condition": "$.steps.validate_with_vendor_a.response.status === 'success'",
+      "onTrue": {
+        "id": "fetch_gst_details",
+        "type": "api_call",
+        "vendor": {
+          "url": "{{MOCK_SERVER}}/vendor-b/gst",
+          "method": "POST"
+        },
+        "requestMapping": {
+          "name": "$.steps.validate_with_vendor_a.response.name"
+        },
+        "retries": 1,
+        "timeout": 5000
+      },
+      "onFalse": null
+    }
+  ],
+  "response": {
+    "mapping": {
+      "aadhaar_valid": "$.steps.validate_with_vendor_a.response.is_valid",
+      "name": "$.steps.validate_with_vendor_a.response.name",
+      "aadhaar_number": "$.steps.validate_with_vendor_a.response.aadhaar_number",
+      "address": "$.steps.validate_with_vendor_a.response.address",
+      "gst_details": "$.steps.fetch_gst_details.response"
+    },
+    "statusCode": 200
+  },
+  "webhook": {
+    "url": "http://localhost:4000/health",
+    "events": ["success", "failure"]
+  }
+}

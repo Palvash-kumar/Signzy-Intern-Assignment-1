@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  platform:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - MOCK_SERVER_URL=http://mock-server:4000
+      - JWT_SECRET=${JWT_SECRET:-orchestrator-secret}
+      - API_KEY=${API_KEY:-test-api-key-12345}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LOG_LEVEL=info
+    depends_on:
+      - mock-server
+    volumes:
+      - ./configs:/app/configs
+
+  mock-server:
+    build: .
+    command: ["node", "src/mock/mock-server.js"]
+    ports:
+      - "4000:4000"
+    environment:
+      - MOCK_SERVER_PORT=4000
