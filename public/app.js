@@ -1,29 +1,27 @@
 /**
  * Visual Workflow Editor — Frontend Logic
- * Manages workflow CRUD, step editing, AI integration, testing.
+ * SVG icon helper uses sprite refs. Zero emojis.
  */
 
-// ═══════════════════════════════════════════════════════════
-// State
-// ═══════════════════════════════════════════════════════════
 let workflows = [];
 let currentWorkflow = null;
 
-// ═══════════════════════════════════════════════════════════
-// API Helpers
-// ═══════════════════════════════════════════════════════════
-async function api(path, options = {}) {
+// ── Helpers ────────────────────────────────────────────────
+function ic(id, cls = '') { return `<svg class="ic ${cls}" aria-hidden="true"><use href="#${id}"/></svg>`; }
+
+async function api(path, opts = {}) {
   const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-    ...options,
-    body: options.body ? JSON.stringify(options.body) : undefined
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
   });
   return res.json();
 }
 
-// ═══════════════════════════════════════════════════════════
-// Initialization
-// ═══════════════════════════════════════════════════════════
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function tryJSON(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// ── Init ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   await loadWorkflows();
   loadStats();
@@ -31,621 +29,312 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function loadWorkflows() {
-  const res = await api('/api/workflows');
-  workflows = res.data || [];
-  renderWorkflowList();
+  const r = await api('/api/workflows');
+  workflows = r.data || [];
+  renderList();
 }
 
 async function loadStats() {
-  const res = await api('/metrics');
-  const el = document.getElementById('quick-stats');
-  el.innerHTML = `
-    <div class="stat-item"><div class="stat-value">${workflows.length}</div><div class="stat-label">Workflows</div></div>
-    <div class="stat-item"><div class="stat-value">${res.totalRequests || 0}</div><div class="stat-label">Total Requests</div></div>
-    <div class="stat-item"><div class="stat-value">${res.successRate || 'N/A'}</div><div class="stat-label">Success Rate</div></div>
-  `;
+  const r = await api('/metrics');
+  document.getElementById('quick-stats').innerHTML =
+    `<div class="stat"><div class="stat-val">${workflows.length}</div><div class="stat-lbl">Workflows</div></div>` +
+    `<div class="stat"><div class="stat-val">${r.totalRequests || 0}</div><div class="stat-lbl">Requests</div></div>` +
+    `<div class="stat"><div class="stat-val">${r.successRate || '—'}</div><div class="stat-lbl">Success</div></div>`;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Workflow List (Sidebar)
-// ═══════════════════════════════════════════════════════════
-function renderWorkflowList() {
-  const list = document.getElementById('workflow-list');
-  if (!workflows.length) {
-    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:0.8rem;">No workflows yet. Create one to get started.</div>';
-    return;
-  }
+// ── Sidebar ────────────────────────────────────────────────
+function renderList() {
+  const el = document.getElementById('workflow-list');
+  if (!workflows.length) { el.innerHTML = '<div style="padding:14px;color:var(--text-tertiary);font-size:12px">No workflows yet.</div>'; return; }
+  const mc = { POST: 'post', GET: 'get', PUT: 'put', DELETE: 'del' };
+  el.innerHTML = workflows.map(wf => {
+    const m = wf.endpoint?.method || 'POST';
+    return `<div class="wf-item ${currentWorkflow?.id === wf.id ? 'active' : ''}" data-id="${wf.id}">
+      <div class="wf-method wf-method--${mc[m] || 'post'}">${m.slice(0, 3)}</div>
+      <div class="wf-meta"><div class="wf-name">${esc(wf.id)}</div><div class="wf-path">${m} ${wf.endpoint?.path || ''}</div></div>
+      <button class="ic-btn wf-del" data-del="${wf.id}" title="Delete" aria-label="Delete">${ic('ic-trash')}</button>
+    </div>`;
+  }).join('');
 
-  const icons = { POST: '📨', GET: '📥', PUT: '📝', DELETE: '🗑️' };
-  const colors = { POST: '#6366f1', GET: '#22c55e', PUT: '#f59e0b', DELETE: '#ef4444' };
-
-  list.innerHTML = workflows.map(wf => `
-    <div class="workflow-item ${currentWorkflow?.id === wf.id ? 'active' : ''}" data-id="${wf.id}">
-      <div class="wf-icon" style="background:${colors[wf.endpoint.method] || '#6366f1'}20;color:${colors[wf.endpoint.method] || '#6366f1'}">
-        ${icons[wf.endpoint.method] || '📨'}
-      </div>
-      <div class="wf-info">
-        <div class="wf-name">${wf.id}</div>
-        <div class="wf-endpoint">${wf.endpoint.method} ${wf.endpoint.path}</div>
-      </div>
-      <button class="btn btn-ghost btn-xs wf-delete" data-delete="${wf.id}" title="Delete">🗑️</button>
-    </div>
-  `).join('');
-
-  // Click handlers
-  list.querySelectorAll('.workflow-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      if (e.target.closest('[data-delete]')) return;
-      selectWorkflow(item.dataset.id);
-    });
-  });
-
-  list.querySelectorAll('[data-delete]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!confirm(`Delete workflow "${btn.dataset.delete}"?`)) return;
-      await api(`/api/workflows/${btn.dataset.delete}`, { method: 'DELETE' });
-      toast('Workflow deleted', 'success');
-      if (currentWorkflow?.id === btn.dataset.delete) {
-        currentWorkflow = null;
-        showWelcome();
-      }
-      await loadWorkflows();
-    });
-  });
+  el.querySelectorAll('.wf-item').forEach(i => i.addEventListener('click', e => {
+    if (e.target.closest('[data-del]')) return;
+    selectWF(i.dataset.id);
+  }));
+  el.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${b.dataset.del}"?`)) return;
+    await api(`/api/workflows/${b.dataset.del}`, { method: 'DELETE' });
+    toast('Deleted', 'success');
+    if (currentWorkflow?.id === b.dataset.del) { currentWorkflow = null; showWelcome(); }
+    await loadWorkflows();
+  }));
 }
 
-async function selectWorkflow(id) {
-  const res = await api(`/api/workflows/${id}`);
-  currentWorkflow = res.data;
-  renderWorkflowList();
-  showCanvas();
-  renderWorkflow();
+async function selectWF(id) {
+  const r = await api(`/api/workflows/${id}`);
+  currentWorkflow = r.data;
+  renderList(); showEditor(); renderWF();
 }
 
-// ═══════════════════════════════════════════════════════════
-// Canvas: Render Workflow
-// ═══════════════════════════════════════════════════════════
-function showWelcome() {
-  document.getElementById('welcome-state').classList.remove('hidden');
-  document.getElementById('workflow-canvas').classList.add('hidden');
-}
+// ── Views ──────────────────────────────────────────────────
+function showWelcome()  { document.getElementById('welcome-state').classList.remove('hidden'); document.getElementById('workflow-canvas').classList.add('hidden'); }
+function showEditor()   { document.getElementById('welcome-state').classList.add('hidden'); document.getElementById('workflow-canvas').classList.remove('hidden'); }
 
-function showCanvas() {
-  document.getElementById('welcome-state').classList.add('hidden');
-  document.getElementById('workflow-canvas').classList.remove('hidden');
-}
-
-function renderWorkflow() {
+function renderWF() {
   if (!currentWorkflow) return;
-
   const wf = currentWorkflow;
   document.getElementById('workflow-title').value = wf.id;
   document.getElementById('workflow-version').textContent = `v${wf.version || '1.0'}`;
   document.getElementById('workflow-endpoint').textContent = `${wf.endpoint.method} ${wf.endpoint.path}`;
-
   document.getElementById('endpoint-method').value = wf.endpoint.method;
   document.getElementById('endpoint-path').value = wf.endpoint.path;
   document.getElementById('auth-type').value = wf.auth?.type || 'none';
-
-  document.getElementById('request-schema').value = wf.request?.schema
-    ? JSON.stringify(wf.request.schema, null, 2) : '';
-
-  document.getElementById('response-mapping').value = wf.response?.mapping
-    ? JSON.stringify(wf.response.mapping, null, 2) : '';
-
+  document.getElementById('request-schema').value = wf.request?.schema ? JSON.stringify(wf.request.schema, null, 2) : '';
+  document.getElementById('response-mapping').value = wf.response?.mapping ? JSON.stringify(wf.response.mapping, null, 2) : '';
   renderSteps(wf.steps);
 }
 
-function renderSteps(steps, container) {
-  const el = container || document.getElementById('steps-container');
-  el.innerHTML = '';
-
-  if (!steps || !steps.length) {
-    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);">No steps yet. Click "+ Add Step" to begin.</div>';
-    return;
-  }
-
-  steps.forEach((step, idx) => {
-    if (idx > 0) {
-      el.insertAdjacentHTML('beforeend', '<div class="step-connector">↓</div>');
-    }
-    el.appendChild(createStepNode(step, idx));
+// ── Steps ──────────────────────────────────────────────────
+function renderSteps(steps, el) {
+  const c = el || document.getElementById('steps-container');
+  c.innerHTML = '';
+  if (!steps?.length) { c.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-tertiary);font-size:12px">No steps. Click "Add Step".</div>'; return; }
+  steps.forEach((s, i) => {
+    if (i > 0) c.insertAdjacentHTML('beforeend', `<div class="step-wire"><span class="wire-line" style="height:6px"></span>${ic('ic-down','wire-chevron')}</div>`);
+    c.appendChild(makeStep(s, i));
   });
 }
 
-function createStepNode(step, index) {
-  const div = document.createElement('div');
-  div.className = 'step-node';
-  div.dataset.index = index;
+function makeStep(step, idx) {
+  const d = document.createElement('div');
+  d.className = 'step-node'; d.dataset.index = idx;
+  const t = step.type || 'api_call';
+  const icons = { api_call: 'ic-link', conditional: 'ic-branch', parallel: 'ic-zap' };
+  const tags  = { api_call: 'step-tag--api', conditional: 'step-tag--cond', parallel: 'step-tag--par' };
 
-  const typeIcon = { api_call: '🔗', conditional: '🔀', parallel: '⚡' };
-  const type = step.type || 'api_call';
-
-  let bodyHTML = '';
-
-  if (type === 'api_call') {
-    bodyHTML = `
-      <div class="step-field">
-        <label>Vendor URL</label>
-        <input type="text" value="${step.vendor?.url || ''}" data-field="vendor.url">
-      </div>
-      <div class="step-field">
-        <label>Method</label>
-        <select data-field="vendor.method">
-          <option value="POST" ${step.vendor?.method === 'POST' ? 'selected' : ''}>POST</option>
-          <option value="GET" ${step.vendor?.method === 'GET' ? 'selected' : ''}>GET</option>
-          <option value="PUT" ${step.vendor?.method === 'PUT' ? 'selected' : ''}>PUT</option>
-        </select>
-      </div>
-      <div class="step-field">
-        <label>Request Mapping</label>
-        <textarea data-field="requestMapping">${step.requestMapping ? JSON.stringify(step.requestMapping, null, 2) : ''}</textarea>
-      </div>
-      <div class="step-field" style="display:flex;gap:8px;">
-        <div style="flex:1"><label>Retries</label><input type="number" value="${step.retries || 0}" data-field="retries" min="0" max="5"></div>
-        <div style="flex:1"><label>Timeout (ms)</label><input type="number" value="${step.timeout || 5000}" data-field="timeout"></div>
-        <div style="flex:1"><label>Cache TTL (s)</label><input type="number" value="${step.cache?.ttl || 0}" data-field="cache.ttl" min="0"></div>
-      </div>
-    `;
-  } else if (type === 'conditional') {
-    bodyHTML = `
-      <div class="step-field">
-        <label>Condition</label>
-        <input type="text" value="${step.condition || ''}" data-field="condition" placeholder="$.steps.prev.response.status === 'success'">
-      </div>
-      <div class="step-field">
-        <label>On True (Step JSON)</label>
-        <textarea data-field="onTrue" rows="4">${step.onTrue ? JSON.stringify(step.onTrue, null, 2) : ''}</textarea>
-      </div>
-      <div class="step-field">
-        <label>On False (Step JSON)</label>
-        <textarea data-field="onFalse" rows="3">${step.onFalse ? JSON.stringify(step.onFalse, null, 2) : 'null'}</textarea>
-      </div>
-    `;
-  } else if (type === 'parallel') {
-    bodyHTML = `
-      <div class="parallel-container">
-        <div class="parallel-label">⚡ Parallel Steps (${step.steps?.length || 0} concurrent)</div>
-        <div class="step-field">
-          <label>Steps (JSON Array)</label>
-          <textarea data-field="steps" rows="8">${step.steps ? JSON.stringify(step.steps, null, 2) : '[]'}</textarea>
-        </div>
-      </div>
-    `;
+  let body = '';
+  if (t === 'api_call') {
+    body = `
+      <div class="field-group"><label>Vendor URL</label><input value="${step.vendor?.url || ''}" data-f="vendor.url"></div>
+      <div class="field-group"><label>Method</label><select data-f="vendor.method"><option value="POST" ${step.vendor?.method === 'POST' ? 'selected' : ''}>POST</option><option value="GET" ${step.vendor?.method === 'GET' ? 'selected' : ''}>GET</option><option value="PUT" ${step.vendor?.method === 'PUT' ? 'selected' : ''}>PUT</option></select></div>
+      <div class="field-group"><label>Request Mapping</label><textarea data-f="requestMapping">${step.requestMapping ? JSON.stringify(step.requestMapping, null, 2) : ''}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div class="field-group"><label>Retries</label><input type="number" value="${step.retries || 0}" data-f="retries" min="0" max="5"></div>
+        <div class="field-group"><label>Timeout</label><input type="number" value="${step.timeout || 5000}" data-f="timeout"></div>
+        <div class="field-group"><label>Cache TTL</label><input type="number" value="${step.cache?.ttl || 0}" data-f="cache.ttl" min="0"></div>
+      </div>`;
+  } else if (t === 'conditional') {
+    body = `
+      <div class="field-group"><label>Condition</label><input value="${step.condition || ''}" data-f="condition" placeholder="$.steps.prev.response.status === 'success'"></div>
+      <div class="field-group"><label>On True</label><textarea data-f="onTrue" rows="3">${step.onTrue ? JSON.stringify(step.onTrue, null, 2) : ''}</textarea></div>
+      <div class="field-group"><label>On False</label><textarea data-f="onFalse" rows="2">${step.onFalse ? JSON.stringify(step.onFalse, null, 2) : 'null'}</textarea></div>`;
+  } else if (t === 'parallel') {
+    body = `<div class="par-box">
+      <div class="par-label">${ic('ic-zap','ic--xs')} Parallel (${step.steps?.length || 0} concurrent)</div>
+      <div class="field-group"><label>Steps (JSON)</label><textarea data-f="steps" rows="8">${step.steps ? JSON.stringify(step.steps, null, 2) : '[]'}</textarea></div>
+    </div>`;
   }
 
-  div.innerHTML = `
-    <div class="step-header">
-      <div class="step-header-left">
-        <span>${typeIcon[type] || '🔗'}</span>
-        <span class="step-type-badge ${type}">${type}</span>
-        <input type="text" class="step-id-input" value="${step.id}" data-field="id">
+  d.innerHTML = `
+    <div class="step-head">
+      <div class="step-head-l">
+        ${ic(icons[t] || 'ic-link', 'ic--sm')}
+        <span class="step-tag ${tags[t] || 'step-tag--api'}">${t.replace('_', ' ')}</span>
+        <input class="step-id" value="${step.id}" data-f="id" aria-label="Step ID">
       </div>
-      <div class="step-actions">
-        <button class="btn btn-ghost btn-xs" data-move-up="${index}" title="Move Up">⬆</button>
-        <button class="btn btn-ghost btn-xs" data-move-down="${index}" title="Move Down">⬇</button>
-        <button class="btn btn-danger btn-xs" data-remove="${index}" title="Remove">✕</button>
+      <div class="step-acts">
+        <button class="ic-btn" data-up="${idx}" title="Up">${ic('ic-up')}</button>
+        <button class="ic-btn" data-dn="${idx}" title="Down">${ic('ic-down')}</button>
+        <button class="ic-btn" data-rm="${idx}" title="Remove" style="color:var(--red)">${ic('ic-x')}</button>
       </div>
     </div>
-    <div class="step-body">${bodyHTML}</div>
-  `;
+    <div class="step-body">${body}</div>`;
 
-  // Event: field changes
-  div.querySelectorAll('[data-field]').forEach(input => {
-    input.addEventListener('change', () => updateStepField(index, input.dataset.field, input.value));
-  });
-
-  // Event: move/remove
-  div.querySelector(`[data-move-up="${index}"]`)?.addEventListener('click', () => moveStep(index, -1));
-  div.querySelector(`[data-move-down="${index}"]`)?.addEventListener('click', () => moveStep(index, 1));
-  div.querySelector(`[data-remove="${index}"]`)?.addEventListener('click', () => removeStep(index));
-
-  return div;
+  d.querySelectorAll('[data-f]').forEach(inp => inp.addEventListener('change', () => setField(idx, inp.dataset.f, inp.value)));
+  d.querySelector(`[data-up="${idx}"]`)?.addEventListener('click', () => moveStep(idx, -1));
+  d.querySelector(`[data-dn="${idx}"]`)?.addEventListener('click', () => moveStep(idx, 1));
+  d.querySelector(`[data-rm="${idx}"]`)?.addEventListener('click', () => rmStep(idx));
+  return d;
 }
 
-// ═══════════════════════════════════════════════════════════
-// Step Operations
-// ═══════════════════════════════════════════════════════════
-function updateStepField(index, field, value) {
-  if (!currentWorkflow?.steps[index]) return;
-  const step = currentWorkflow.steps[index];
-
-  // Handle nested fields (e.g., "vendor.url")
-  const parts = field.split('.');
-  if (parts.length === 2) {
-    if (!step[parts[0]]) step[parts[0]] = {};
-    step[parts[0]][parts[1]] = tryParseJSON(value) ?? value;
-  } else {
-    step[field] = tryParseJSON(value) ?? value;
-  }
-}
-
-function tryParseJSON(str) {
-  try { return JSON.parse(str); } catch { return null; }
+function setField(i, f, v) {
+  if (!currentWorkflow?.steps[i]) return;
+  const s = currentWorkflow.steps[i], p = f.split('.');
+  if (p.length === 2) { if (!s[p[0]]) s[p[0]] = {}; s[p[0]][p[1]] = tryJSON(v) ?? v; }
+  else s[f] = tryJSON(v) ?? v;
 }
 
 function addStep(type = 'api_call') {
   if (!currentWorkflow) return;
   if (!currentWorkflow.steps) currentWorkflow.steps = [];
-
   const id = `step_${currentWorkflow.steps.length + 1}`;
-  const step = { id, type };
-
-  if (type === 'api_call') {
-    step.vendor = { url: '{{MOCK_SERVER}}/', method: 'POST' };
-    step.requestMapping = {};
-    step.retries = 1;
-    step.timeout = 5000;
-  } else if (type === 'conditional') {
-    step.condition = '';
-    step.onTrue = null;
-    step.onFalse = null;
-  } else if (type === 'parallel') {
-    step.steps = [];
-  }
-
-  currentWorkflow.steps.push(step);
+  const s = { id, type };
+  if (type === 'api_call') { s.vendor = { url: '{{MOCK_SERVER}}/', method: 'POST' }; s.requestMapping = {}; s.retries = 1; s.timeout = 5000; }
+  else if (type === 'conditional') { s.condition = ''; s.onTrue = null; s.onFalse = null; }
+  else if (type === 'parallel') { s.steps = []; }
+  currentWorkflow.steps.push(s);
   renderSteps(currentWorkflow.steps);
 }
-
-function removeStep(index) {
+function rmStep(i)   { if (!currentWorkflow?.steps) return; currentWorkflow.steps.splice(i, 1); renderSteps(currentWorkflow.steps); }
+function moveStep(i, d) {
   if (!currentWorkflow?.steps) return;
-  currentWorkflow.steps.splice(index, 1);
-  renderSteps(currentWorkflow.steps);
+  const n = i + d; if (n < 0 || n >= currentWorkflow.steps.length) return;
+  const a = currentWorkflow.steps; [a[i], a[n]] = [a[n], a[i]]; renderSteps(a);
 }
 
-function moveStep(index, direction) {
-  if (!currentWorkflow?.steps) return;
-  const newIndex = index + direction;
-  if (newIndex < 0 || newIndex >= currentWorkflow.steps.length) return;
-  const steps = currentWorkflow.steps;
-  [steps[index], steps[newIndex]] = [steps[newIndex], steps[index]];
-  renderSteps(steps);
-}
-
-// ═══════════════════════════════════════════════════════════
-// Save & Build Config
-// ═══════════════════════════════════════════════════════════
-function buildConfig() {
-  const config = {
+// ── Build / Save ───────────────────────────────────────────
+function build() {
+  const c = {
     id: document.getElementById('workflow-title').value || 'untitled',
-    version: (currentWorkflow?.version || '1.0'),
-    endpoint: {
-      method: document.getElementById('endpoint-method').value,
-      path: document.getElementById('endpoint-path').value || '/untitled'
-    },
+    version: currentWorkflow?.version || '1.0',
+    endpoint: { method: document.getElementById('endpoint-method').value, path: document.getElementById('endpoint-path').value || '/untitled' },
     auth: { type: document.getElementById('auth-type').value },
-    request: {},
-    steps: currentWorkflow?.steps || [],
-    response: {}
+    request: {}, steps: currentWorkflow?.steps || [], response: {}
   };
-
-  const schemaStr = document.getElementById('request-schema').value.trim();
-  if (schemaStr) {
-    try { config.request.schema = JSON.parse(schemaStr); } catch { /* skip */ }
-  }
-
-  const responseStr = document.getElementById('response-mapping').value.trim();
-  if (responseStr) {
-    try { config.response.mapping = JSON.parse(responseStr); } catch { /* skip */ }
-  }
-
-  if (config.auth.type === 'none') delete config.auth;
-
-  return config;
+  const s = document.getElementById('request-schema').value.trim();
+  if (s) try { c.request.schema = JSON.parse(s); } catch { /* skip */ }
+  const r = document.getElementById('response-mapping').value.trim();
+  if (r) try { c.response.mapping = JSON.parse(r); } catch { /* skip */ }
+  if (c.auth.type === 'none') delete c.auth;
+  return c;
 }
 
-async function saveWorkflow() {
-  const config = buildConfig();
-  const res = await api('/api/workflows', { method: 'POST', body: config });
-
-  if (res.success) {
-    toast('Workflow saved & deployed! ✨', 'success');
-    currentWorkflow = config;
-    await loadWorkflows();
-    renderWorkflowList();
-  } else {
-    toast(`Save failed: ${res.error}`, 'error');
-  }
+async function save() {
+  const cfg = build();
+  const r = await api('/api/workflows', { method: 'POST', body: cfg });
+  if (r.success) { toast('Deployed', 'success'); currentWorkflow = cfg; await loadWorkflows(); renderList(); }
+  else toast(`Failed: ${r.error}`, 'error');
 }
 
-// ═══════════════════════════════════════════════════════════
-// New Workflow
-// ═══════════════════════════════════════════════════════════
-function newWorkflow() {
+function newWF() {
   currentWorkflow = {
-    id: 'new-workflow',
-    version: '1.0',
+    id: 'new-workflow', version: '1.0',
     endpoint: { method: 'POST', path: '/new-endpoint' },
     auth: { type: 'api_key' },
     request: { schema: { type: 'object', properties: {}, required: [] } },
-    steps: [],
-    response: { mapping: {} }
+    steps: [], response: { mapping: {} }
   };
-
-  renderWorkflowList();
-  showCanvas();
-  renderWorkflow();
+  renderList(); showEditor(); renderWF();
 }
 
-// ═══════════════════════════════════════════════════════════
-// Modals
-// ═══════════════════════════════════════════════════════════
+// ── Modals ─────────────────────────────────────────────────
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function showJSONModal() {
-  const config = currentWorkflow ? buildConfig() : {};
-  document.getElementById('json-viewer').textContent = JSON.stringify(config, null, 2);
-  openModal('json-modal');
-}
+function showJSON() { document.getElementById('json-viewer').textContent = JSON.stringify(currentWorkflow ? build() : {}, null, 2); openModal('json-modal'); }
 
-function showTestModal() {
+function showTest() {
   if (!currentWorkflow) return;
-  const wf = currentWorkflow;
-
-  // Pre-fill headers based on auth type
-  const headers = {};
-  if (wf.auth?.type === 'api_key') headers['X-API-Key'] = 'test-api-key-12345';
-  if (wf.auth?.type === 'jwt') headers['Authorization'] = 'Bearer <token>';
-  document.getElementById('test-headers').value = JSON.stringify(headers, null, 2);
-
-  // Pre-fill body from schema
-  const body = {};
-  if (wf.request?.schema?.properties) {
-    for (const [key, prop] of Object.entries(wf.request.schema.properties)) {
-      if (prop.type === 'string') body[key] = prop.enum?.[0] || 'test-value';
-      else if (prop.type === 'number') body[key] = 0;
-      else if (prop.type === 'boolean') body[key] = true;
-    }
+  const wf = currentWorkflow, h = {};
+  if (wf.auth?.type === 'api_key') h['X-API-Key'] = 'test-api-key-12345';
+  if (wf.auth?.type === 'jwt') h['Authorization'] = 'Bearer <token>';
+  document.getElementById('test-headers').value = JSON.stringify(h, null, 2);
+  const b = {};
+  if (wf.request?.schema?.properties) for (const [k, p] of Object.entries(wf.request.schema.properties)) {
+    if (p.type === 'string') b[k] = p.enum?.[0] || 'test';
+    else if (p.type === 'number') b[k] = 0;
+    else if (p.type === 'boolean') b[k] = true;
   }
-  document.getElementById('test-body').value = JSON.stringify(body, null, 2);
+  document.getElementById('test-body').value = JSON.stringify(b, null, 2);
   document.getElementById('test-response').textContent = 'Click "Send Request" to test';
-
   openModal('test-modal');
 }
 
 async function runTest() {
-  const wf = buildConfig();
+  const wf = build();
   let headers, body;
-
+  try { headers = JSON.parse(document.getElementById('test-headers').value); } catch { headers = {}; }
+  try { body = JSON.parse(document.getElementById('test-body').value); } catch { toast('Invalid JSON body', 'error'); return; }
+  const el = document.getElementById('test-response');
+  el.textContent = 'Sending…';
   try {
-    headers = JSON.parse(document.getElementById('test-headers').value);
-  } catch { headers = {}; }
-
-  try {
-    body = JSON.parse(document.getElementById('test-body').value);
-  } catch (e) {
-    toast('Invalid JSON in request body', 'error');
-    return;
-  }
-
-  const responseEl = document.getElementById('test-response');
-  responseEl.textContent = '⏳ Sending request...';
-
-  try {
-    const res = await fetch(wf.endpoint.path, {
-      method: wf.endpoint.method,
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(body)
-    });
+    const res = await fetch(wf.endpoint.path, { method: wf.endpoint.method, headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
     const data = await res.json();
-    responseEl.textContent = `HTTP ${res.status}\n\n${JSON.stringify(data, null, 2)}`;
-  } catch (err) {
-    responseEl.textContent = `Error: ${err.message}`;
-  }
+    el.textContent = `HTTP ${res.status}\n\n${JSON.stringify(data, null, 2)}`;
+  } catch (err) { el.textContent = `Error: ${err.message}`; }
 }
 
-// ═══════════════════════════════════════════════════════════
-// AI Integration
-// ═══════════════════════════════════════════════════════════
-async function aiGenerateWorkflow() {
+// ── AI ─────────────────────────────────────────────────────
+async function aiGen() {
   const input = document.getElementById('ai-input').value.trim();
   if (!input) return;
-
   const chat = document.getElementById('ai-chat');
-
-  // Show user message
-  chat.insertAdjacentHTML('beforeend', `<div class="ai-message ai-user"><p>${escapeHtml(input)}</p></div>`);
-
-  // Show loading
-  chat.insertAdjacentHTML('beforeend', '<div class="ai-message ai-loading" id="ai-loading"><p>Generating workflow config</p></div>');
+  chat.insertAdjacentHTML('beforeend', `<div class="chat-msg chat-user"><p>${esc(input)}</p></div>`);
+  chat.insertAdjacentHTML('beforeend', '<div class="chat-msg chat-loading" id="ai-ld"><p>Generating</p></div>');
   chat.scrollTop = chat.scrollHeight;
-
   document.getElementById('ai-input').value = '';
-
   try {
-    const res = await api('/api/ai/generate-workflow', { method: 'POST', body: { description: input } });
-    document.getElementById('ai-loading')?.remove();
-
-    if (res.success && res.data) {
-      const config = res.data;
-      chat.insertAdjacentHTML('beforeend', `
-        <div class="ai-message ai-bot">
-          <p>✅ Workflow generated: <strong>${config.id}</strong></p>
-          <p>${config.endpoint.method} ${config.endpoint.path} — ${config.steps?.length || 0} step(s)</p>
-          <button class="btn btn-primary btn-sm" id="btn-ai-use">Use This Workflow</button>
-          <button class="btn btn-secondary btn-sm" id="btn-ai-deploy">Save & Deploy</button>
-        </div>
-      `);
-
-      document.getElementById('btn-ai-use').addEventListener('click', () => {
-        currentWorkflow = config;
-        closeModal('ai-modal');
-        showCanvas();
-        renderWorkflow();
-        renderWorkflowList();
-        toast('Workflow loaded into editor', 'info');
-      });
-
-      document.getElementById('btn-ai-deploy').addEventListener('click', async () => {
-        currentWorkflow = config;
-        await saveWorkflow();
-        closeModal('ai-modal');
-        showCanvas();
-        renderWorkflow();
-      });
-    } else {
-      chat.insertAdjacentHTML('beforeend', `<div class="ai-message ai-bot"><p>❌ ${res.error || 'Failed to generate workflow'}</p></div>`);
-    }
-  } catch (err) {
-    document.getElementById('ai-loading')?.remove();
-    chat.insertAdjacentHTML('beforeend', `<div class="ai-message ai-bot"><p>❌ Error: ${err.message}</p></div>`);
-  }
-
+    const r = await api('/api/ai/generate-workflow', { method: 'POST', body: { description: input } });
+    document.getElementById('ai-ld')?.remove();
+    if (r.success && r.data) {
+      const cfg = r.data;
+      chat.insertAdjacentHTML('beforeend', `<div class="chat-msg chat-bot"><p><strong>${esc(cfg.id)}</strong> — ${cfg.endpoint.method} ${cfg.endpoint.path} (${cfg.steps?.length || 0} steps)</p>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn-pill btn-pill--sm" id="ai-use">Use</button><button class="btn-pill-ghost btn-pill--sm" style="padding:5px 14px;font-size:12px" id="ai-dep">Deploy</button></div></div>`);
+      document.getElementById('ai-use').onclick = () => { currentWorkflow = cfg; closeModal('ai-modal'); showEditor(); renderWF(); renderList(); toast('Loaded', 'info'); };
+      document.getElementById('ai-dep').onclick = async () => { currentWorkflow = cfg; await save(); closeModal('ai-modal'); showEditor(); renderWF(); };
+    } else chat.insertAdjacentHTML('beforeend', `<div class="chat-msg chat-bot"><p>${r.error || 'Failed'}</p></div>`);
+  } catch (err) { document.getElementById('ai-ld')?.remove(); chat.insertAdjacentHTML('beforeend', `<div class="chat-msg chat-bot"><p>Error: ${esc(err.message)}</p></div>`); }
   chat.scrollTop = chat.scrollHeight;
 }
 
-async function aiValidate() {
+async function aiAction(endpoint, label) {
   if (!currentWorkflow) return;
-  const config = buildConfig();
-
-  toast('🤖 Validating with AI...', 'info');
+  toast(`${label}…`, 'info');
   try {
-    const res = await api('/api/ai/validate', { method: 'POST', body: config });
-    if (res.success) {
-      showPanel('Validation Results', `<pre>${JSON.stringify(res.data, null, 2)}</pre>`);
-    } else {
-      toast(`Validation error: ${res.error}`, 'error');
-    }
-  } catch (err) {
-    toast(`AI error: ${err.message}`, 'error');
-  }
+    const r = await api(`/api/ai/${endpoint}`, { method: 'POST', body: build() });
+    if (r.success) showPanel(label, `<pre>${JSON.stringify(r.data, null, 2)}</pre>`);
+    else toast(`Error: ${r.error}`, 'error');
+  } catch (err) { toast(err.message, 'error'); }
 }
 
-async function aiImprove() {
-  if (!currentWorkflow) return;
-  const config = buildConfig();
-
-  toast('💡 Getting improvement suggestions...', 'info');
-  try {
-    const res = await api('/api/ai/suggest', { method: 'POST', body: config });
-    if (res.success) {
-      showPanel('Improvement Suggestions', `<pre>${JSON.stringify(res.data, null, 2)}</pre>`);
-    } else {
-      toast(`Suggestion error: ${res.error}`, 'error');
-    }
-  } catch (err) {
-    toast(`AI error: ${err.message}`, 'error');
-  }
-}
-
-async function aiGenerateTests() {
-  if (!currentWorkflow) return;
-  const config = buildConfig();
-
-  toast('🧪 Generating test cases...', 'info');
-  try {
-    const res = await api('/api/ai/generate-tests', { method: 'POST', body: config });
-    if (res.success) {
-      showPanel('Generated Test Cases', `<pre>${JSON.stringify(res.data, null, 2)}</pre>`);
-    } else {
-      toast(`Test gen error: ${res.error}`, 'error');
-    }
-  } catch (err) {
-    toast(`AI error: ${err.message}`, 'error');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// Right Panel
-// ═══════════════════════════════════════════════════════════
+// ── Panel ──────────────────────────────────────────────────
 function showPanel(title, html) {
   document.getElementById('panel-title').textContent = title;
   document.getElementById('panel-content').innerHTML = html;
   document.getElementById('right-panel').classList.remove('hidden');
 }
 
-function hidePanel() {
-  document.getElementById('right-panel').classList.add('hidden');
-}
-
-// ═══════════════════════════════════════════════════════════
-// Toast Notifications
-// ═══════════════════════════════════════════════════════════
-function toast(message, type = 'info') {
-  const container = document.getElementById('toast-container');
+// ── Toast ──────────────────────────────────────────────────
+function toast(msg, type = 'info') {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
-  el.textContent = message;
-  container.appendChild(el);
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 3000);
 }
 
-// ═══════════════════════════════════════════════════════════
-// Utility
-// ═══════════════════════════════════════════════════════════
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
-
-// ═══════════════════════════════════════════════════════════
-// Event Bindings
-// ═══════════════════════════════════════════════════════════
+// ── Events ─────────────────────────────────────────────────
 function bindEvents() {
-  // Navbar
-  document.getElementById('btn-new-workflow').addEventListener('click', newWorkflow);
-  document.getElementById('btn-metrics').addEventListener('click', async () => {
-    const res = await api('/metrics');
-    showPanel('Metrics', `<pre>${JSON.stringify(res, null, 2)}</pre>`);
-  });
-  document.getElementById('btn-docs').addEventListener('click', async () => {
-    const res = await api('/api-docs');
-    showPanel('OpenAPI Spec', `<pre>${JSON.stringify(res, null, 2)}</pre>`);
-  });
+  document.getElementById('btn-new-workflow').addEventListener('click', newWF);
+  document.getElementById('btn-metrics').addEventListener('click', async () => { const r = await api('/metrics'); showPanel('Metrics', `<pre>${JSON.stringify(r, null, 2)}</pre>`); });
+  document.getElementById('btn-docs').addEventListener('click', async () => { const r = await api('/api-docs'); showPanel('API Docs', `<pre>${JSON.stringify(r, null, 2)}</pre>`); });
 
-  // Welcome
-  document.getElementById('btn-welcome-new').addEventListener('click', newWorkflow);
+  document.getElementById('btn-welcome-new').addEventListener('click', newWF);
   document.getElementById('btn-welcome-ai').addEventListener('click', () => openModal('ai-modal'));
-
-  // Sidebar
   document.getElementById('btn-refresh').addEventListener('click', loadWorkflows);
   document.getElementById('ai-chat-trigger').addEventListener('click', () => openModal('ai-modal'));
 
-  // Canvas toolbar
-  document.getElementById('btn-save').addEventListener('click', saveWorkflow);
-  document.getElementById('btn-view-json').addEventListener('click', showJSONModal);
-  document.getElementById('btn-test').addEventListener('click', showTestModal);
-  document.getElementById('btn-ai-validate').addEventListener('click', aiValidate);
-  document.getElementById('btn-ai-improve').addEventListener('click', aiImprove);
-  document.getElementById('btn-ai-tests').addEventListener('click', aiGenerateTests);
+  document.getElementById('btn-save').addEventListener('click', save);
+  document.getElementById('btn-view-json').addEventListener('click', showJSON);
+  document.getElementById('btn-test').addEventListener('click', showTest);
+  document.getElementById('btn-ai-validate').addEventListener('click', () => aiAction('validate', 'Validation'));
+  document.getElementById('btn-ai-improve').addEventListener('click', () => aiAction('suggest', 'Suggestions'));
+  document.getElementById('btn-ai-tests').addEventListener('click', () => aiAction('generate-tests', 'Tests'));
 
-  // Add step button with type selector
   document.getElementById('btn-add-step').addEventListener('click', () => {
-    const type = prompt('Step type: api_call, conditional, or parallel', 'api_call');
-    if (type && ['api_call', 'conditional', 'parallel'].includes(type)) {
-      addStep(type);
-    }
+    const t = prompt('Step type: api_call, conditional, or parallel', 'api_call');
+    if (t && ['api_call', 'conditional', 'parallel'].includes(t)) addStep(t);
   });
 
-  // Modals
   document.getElementById('ai-modal-close').addEventListener('click', () => closeModal('ai-modal'));
   document.getElementById('json-modal-close').addEventListener('click', () => closeModal('json-modal'));
   document.getElementById('test-modal-close').addEventListener('click', () => closeModal('test-modal'));
-  document.getElementById('btn-close-panel').addEventListener('click', hidePanel);
+  document.getElementById('btn-close-panel').addEventListener('click', () => document.getElementById('right-panel').classList.add('hidden'));
 
-  // Close modals on overlay click
-  document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.classList.add('hidden');
-    });
-  });
+  document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); }));
 
-  // AI
-  document.getElementById('btn-ai-generate').addEventListener('click', aiGenerateWorkflow);
-  document.getElementById('ai-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiGenerateWorkflow(); }
-  });
-
-  // Test
+  document.getElementById('btn-ai-generate').addEventListener('click', aiGen);
+  document.getElementById('ai-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiGen(); } });
   document.getElementById('btn-run-test').addEventListener('click', runTest);
-
-  // JSON copy
-  document.getElementById('btn-copy-json').addEventListener('click', () => {
-    navigator.clipboard.writeText(document.getElementById('json-viewer').textContent);
-    toast('Copied to clipboard!', 'success');
-  });
+  document.getElementById('btn-copy-json').addEventListener('click', () => { navigator.clipboard.writeText(document.getElementById('json-viewer').textContent); toast('Copied', 'success'); });
 }

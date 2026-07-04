@@ -13,36 +13,86 @@ const configLoader = require('../engine/config-loader');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
+const LLM_PROVIDER = process.env.LLM_PROVIDER || 'gemini';
+
 /**
- * Call Gemini API with a prompt.
+ * Call the configured LLM API (Gemini, OpenAI, or Groq) with a prompt.
  * @param {string} prompt
  * @returns {Promise<string>} Generated text
  */
 async function callGemini(prompt) {
-  if (!GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY not configured. Set it in .env file.');
+  if (LLM_PROVIDER === 'gemini') {
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured. Set it in .env file.');
+    }
+
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 4096
+        }
+      }),
+      signal: AbortSignal.timeout(30000)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let parsed;
+      try { parsed = JSON.parse(errText); } catch {}
+      const msg = parsed?.error?.message || errText;
+      
+      if (response.status === 429) {
+        throw new Error(
+          `Gemini Quota Exceeded (429). Why: Google restricts new free-tier keys without SMS verification or billing. \n\n` +
+          `FIX: Set LLM_PROVIDER=openai or LLM_PROVIDER=groq in your .env file and add your key (e.g. GROQ_API_KEY).`
+        );
+      }
+      throw new Error(`Gemini API error (${response.status}): ${msg}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
-  const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+  // OpenAI or Groq (OpenAI-compatible)
+  const isGroq = LLM_PROVIDER === 'groq';
+  const apiKey = isGroq ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
+  const model = isGroq 
+    ? (process.env.GROQ_MODEL || 'llama-3.3-70b-specdec') 
+    : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
+  const url = isGroq 
+    ? 'https://api.groq.com/openai/v1/chat/completions' 
+    : 'https://api.openai.com/v1/chat/completions';
+
+  if (!apiKey) {
+    throw new Error(`${LLM_PROVIDER.toUpperCase()}_API_KEY not configured in .env file.`);
+  }
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 4096
-      }
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.2
     }),
     signal: AbortSignal.timeout(30000)
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini API error (${response.status}): ${err}`);
+    const errText = await response.text();
+    throw new Error(`${LLM_PROVIDER.toUpperCase()} API error (${response.status}): ${errText}`);
   }
 
   const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return data.choices?.[0]?.message?.content || '';
 }
 
 /**

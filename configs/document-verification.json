@@ -5,20 +5,18 @@
     "method": "POST",
     "path": "/verify-document"
   },
-  "auth": {
-    "type": "jwt"
-  },
-  "rateLimit": {
-    "windowMs": 60000,
-    "max": 20
-  },
   "request": {
     "schema": {
       "type": "object",
       "properties": {
         "document_type": {
           "type": "string",
-          "enum": ["pan_card", "aadhaar", "passport", "driving_license"],
+          "enum": [
+            "pan_card",
+            "aadhaar",
+            "passport",
+            "driving_license"
+          ],
           "description": "Type of document to verify"
         },
         "document_data": {
@@ -30,7 +28,10 @@
           "description": "Base64 encoded selfie image"
         }
       },
-      "required": ["document_type", "document_data"],
+      "required": [
+        "document_type",
+        "document_data"
+      ],
       "additionalProperties": false
     }
   },
@@ -89,7 +90,6 @@
       "fraud_check": "$.steps.fraud_detection.response",
       "face_match": "$.steps.face_match.response",
       "overall_status": "$.steps.fraud_detection.response.status"
-    },
-    "statusCode": 200
+    }
   }
 }

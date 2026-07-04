@@ -3,245 +3,217 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>API Orchestrator — Visual Workflow Editor</title>
-  <meta name="description" content="Low-code API orchestration platform with visual workflow builder and AI-powered config generation">
+  <title>Orchestrator</title>
+  <meta name="description" content="Low-code API orchestration platform with visual workflow builder">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- ═══════════════════════════════════════════ -->
-  <!-- Top Navigation Bar                          -->
-  <!-- ═══════════════════════════════════════════ -->
-  <nav class="navbar" id="navbar">
+
+  <!-- SVG Sprites -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="ic-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="4"/><line x1="12" y1="20" x2="12" y2="10"/><line x1="6" y1="20" x2="6" y2="16"/></symbol>
+    <symbol id="ic-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></symbol>
+    <symbol id="ic-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"/></symbol>
+    <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></symbol>
+    <symbol id="ic-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/></symbol>
+    <symbol id="ic-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="ic-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0018 8 6 6 0 006 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 019 14"/></symbol>
+    <symbol id="ic-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v7.4a2 2 0 01-.6 1.4L4 17.2a2 2 0 00-.6 1.4V20a1 1 0 001 1h15.2a1 1 0 001-1v-1.4a2 2 0 00-.6-1.4l-5.4-5.4a2 2 0 01-.6-1.4V3"/></symbol>
+    <symbol id="ic-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></symbol>
+    <symbol id="ic-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></symbol>
+    <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></symbol>
+    <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></symbol>
+    <symbol id="ic-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></symbol>
+    <symbol id="ic-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="ic-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="ic-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/></symbol>
+    <symbol id="ic-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="ic-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+    <symbol id="ic-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+    <symbol id="ic-arrow-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></symbol>
+  </svg>
+
+  <!-- ── Global Nav ──────────────────────────────────── -->
+  <nav class="global-nav" id="navbar">
     <div class="nav-brand">
-      <div class="logo">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect width="28" height="28" rx="6" fill="url(#logo-gradient)"/>
-          <path d="M8 14L12 10L16 14L20 10" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M8 18L12 14L16 18L20 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
-          <defs>
-            <linearGradient id="logo-gradient" x1="0" y1="0" x2="28" y2="28">
-              <stop stop-color="#6366f1"/>
-              <stop offset="1" stop-color="#8b5cf6"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <span>API Orchestrator</span>
-      </div>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect width="24" height="24" rx="5" fill="#2997ff"/>
+        <path d="M7 10l2.5-3 2.5 3 2.5-3 2.5 3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M7 15l2.5-3 2.5 3 2.5-3 2.5 3" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>
+      </svg>
+      <span>Orchestrator</span>
     </div>
     <div class="nav-actions">
-      <button class="btn btn-ghost" id="btn-metrics" title="View Metrics">📊 Metrics</button>
-      <button class="btn btn-ghost" id="btn-docs" title="API Docs">📋 Docs</button>
-      <button class="btn btn-primary" id="btn-new-workflow">+ New Workflow</button>
+      <button class="nav-link" id="btn-metrics"><svg class="ic"><use href="#ic-chart"/></svg>Metrics</button>
+      <button class="nav-link" id="btn-docs"><svg class="ic"><use href="#ic-doc"/></svg>Docs</button>
+      <button class="btn-pill" id="btn-new-workflow"><svg class="ic"><use href="#ic-plus"/></svg>New Workflow</button>
     </div>
   </nav>
 
-  <!-- ═══════════════════════════════════════════ -->
-  <!-- Main Layout: Sidebar + Canvas + Panel       -->
-  <!-- ═══════════════════════════════════════════ -->
-  <div class="app-layout">
-    <!-- Sidebar: Workflow List -->
+  <!-- ── App Shell ────────────────────────────────────── -->
+  <div class="app-shell">
+
+    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <h3>Workflows</h3>
-        <button class="btn btn-sm btn-ghost" id="btn-refresh" title="Refresh">🔄</button>
+      <div class="sidebar-head">
+        <span class="sidebar-label">Workflows</span>
+        <button class="ic-btn" id="btn-refresh" aria-label="Refresh"><svg class="ic"><use href="#ic-refresh"/></svg></button>
       </div>
-      <div class="workflow-list" id="workflow-list">
-        <!-- Populated by JS -->
-      </div>
-      <div class="sidebar-footer">
-        <div class="ai-chat-trigger" id="ai-chat-trigger">
-          <span class="ai-icon">🤖</span>
-          <span>Ask AI to create a workflow...</span>
-        </div>
+      <div class="sidebar-list" id="workflow-list"></div>
+      <div class="sidebar-foot">
+        <button class="ai-trigger" id="ai-chat-trigger">
+          <svg class="ic" aria-hidden="true"><use href="#ic-sparkle"/></svg>
+          <span>Generate with AI…</span>
+        </button>
       </div>
     </aside>
 
-    <!-- Main Canvas Area -->
-    <main class="canvas-area" id="canvas-area">
-      <!-- Welcome State -->
-      <div class="welcome-state" id="welcome-state">
-        <div class="welcome-icon">⚡</div>
-        <h2>API Orchestration Platform</h2>
-        <p>Select a workflow to edit, or create a new one</p>
-        <div class="welcome-actions">
-          <button class="btn btn-primary btn-lg" id="btn-welcome-new">+ Create Workflow</button>
-          <button class="btn btn-secondary btn-lg" id="btn-welcome-ai">🤖 Generate with AI</button>
+    <!-- Canvas -->
+    <main class="canvas" id="canvas-area">
+
+      <!-- Welcome -->
+      <div class="welcome" id="welcome-state">
+        <div class="welcome-center">
+          <svg class="welcome-mark" aria-hidden="true"><use href="#ic-layers"/></svg>
+          <h1 class="welcome-h1">API Orchestration<br>Platform</h1>
+          <p class="welcome-sub">Design, test, and deploy API workflows.<br>No business logic required.</p>
+          <div class="welcome-ctas">
+            <button class="btn-pill" id="btn-welcome-new"><svg class="ic"><use href="#ic-plus"/></svg>Create Workflow</button>
+            <button class="btn-pill-ghost" id="btn-welcome-ai"><svg class="ic"><use href="#ic-sparkle"/></svg>Generate with AI</button>
+          </div>
         </div>
-        <div class="quick-stats" id="quick-stats"></div>
+        <div class="stats-bar" id="quick-stats"></div>
+        <div class="feature-row">
+          <div class="feature-tile">
+            <svg class="ic feature-ic" aria-hidden="true"><use href="#ic-code"/></svg>
+            <h4>Config-Driven</h4>
+            <p>Define APIs with JSON configs — zero hand-written business logic.</p>
+          </div>
+          <div class="feature-tile">
+            <svg class="ic feature-ic" aria-hidden="true"><use href="#ic-zap"/></svg>
+            <h4>Parallel Execution</h4>
+            <p>Run multiple vendor calls concurrently in a single step.</p>
+          </div>
+          <div class="feature-tile">
+            <svg class="ic feature-ic" aria-hidden="true"><use href="#ic-sparkle"/></svg>
+            <h4>AI-Powered</h4>
+            <p>Describe in English, receive production-ready config.</p>
+          </div>
+        </div>
       </div>
 
-      <!-- Workflow Canvas (hidden until a workflow is selected) -->
-      <div class="workflow-canvas hidden" id="workflow-canvas">
-        <div class="canvas-toolbar">
-          <div class="workflow-info">
-            <input type="text" class="workflow-title-input" id="workflow-title" placeholder="workflow-id">
-            <span class="workflow-version" id="workflow-version">v1.0</span>
-            <span class="workflow-endpoint" id="workflow-endpoint"></span>
+      <!-- Workflow Editor -->
+      <div class="editor hidden" id="workflow-canvas">
+        <div class="editor-bar">
+          <div class="editor-info">
+            <input type="text" class="editor-title" id="workflow-title" placeholder="workflow-id" aria-label="Workflow ID">
+            <span class="version-badge" id="workflow-version">v1.0</span>
+            <span class="endpoint-label" id="workflow-endpoint"></span>
           </div>
-          <div class="canvas-actions">
-            <button class="btn btn-ghost btn-sm" id="btn-test">▶ Test</button>
-            <button class="btn btn-ghost btn-sm" id="btn-ai-validate">🤖 Validate</button>
-            <button class="btn btn-ghost btn-sm" id="btn-ai-improve">💡 Improve</button>
-            <button class="btn btn-ghost btn-sm" id="btn-ai-tests">🧪 Gen Tests</button>
-            <button class="btn btn-ghost btn-sm" id="btn-view-json">{ } JSON</button>
-            <button class="btn btn-primary btn-sm" id="btn-save">💾 Save & Deploy</button>
+          <div class="editor-actions">
+            <button class="tool-btn" id="btn-test"><svg class="ic"><use href="#ic-play"/></svg>Test</button>
+            <button class="tool-btn" id="btn-ai-validate"><svg class="ic"><use href="#ic-check"/></svg>Validate</button>
+            <button class="tool-btn" id="btn-ai-improve"><svg class="ic"><use href="#ic-bulb"/></svg>Improve</button>
+            <button class="tool-btn" id="btn-ai-tests"><svg class="ic"><use href="#ic-flask"/></svg>Tests</button>
+            <button class="tool-btn" id="btn-view-json"><svg class="ic"><use href="#ic-code"/></svg>JSON</button>
+            <button class="btn-pill btn-pill--sm" id="btn-save"><svg class="ic"><use href="#ic-save"/></svg>Deploy</button>
           </div>
         </div>
 
-        <!-- Flow Diagram -->
-        <div class="flow-container" id="flow-container">
-          <!-- Endpoint Node -->
-          <div class="flow-section">
-            <div class="section-label">Endpoint</div>
-            <div class="flow-node endpoint-node" id="endpoint-node">
-              <div class="node-icon">🌐</div>
-              <div class="node-content">
-                <select id="endpoint-method" class="node-select">
-                  <option value="POST">POST</option>
-                  <option value="GET">GET</option>
-                  <option value="PUT">PUT</option>
-                  <option value="DELETE">DELETE</option>
-                </select>
-                <input type="text" id="endpoint-path" class="node-input" placeholder="/api-path">
+        <div class="flow" id="flow-container">
+          <!-- Endpoint -->
+          <div class="flow-block">
+            <div class="block-label">Endpoint</div>
+            <div class="node" id="endpoint-node">
+              <div class="node-badge node-badge--blue"><svg class="ic"><use href="#ic-globe"/></svg></div>
+              <div class="node-body">
+                <select id="endpoint-method" class="node-sel" aria-label="HTTP method"><option value="POST">POST</option><option value="GET">GET</option><option value="PUT">PUT</option><option value="DELETE">DELETE</option></select>
+                <input type="text" id="endpoint-path" class="node-inp" placeholder="/api-path" aria-label="Path">
               </div>
-              <div class="node-badges">
-                <select id="auth-type" class="badge-select">
-                  <option value="none">No Auth</option>
-                  <option value="api_key">API Key</option>
-                  <option value="jwt">JWT</option>
-                </select>
-              </div>
+              <select id="auth-type" class="node-sel node-sel--sm" aria-label="Auth type"><option value="none">No Auth</option><option value="api_key">API Key</option><option value="jwt">JWT</option></select>
             </div>
           </div>
+          <div class="flow-wire" aria-hidden="true"><span class="wire-line"></span><svg class="ic wire-chevron"><use href="#ic-down"/></svg></div>
 
-          <div class="flow-connector">↓</div>
-
-          <!-- Validation Node -->
-          <div class="flow-section">
-            <div class="section-label">Request Validation</div>
-            <div class="flow-node validation-node" id="validation-node">
-              <div class="node-icon">✅</div>
-              <div class="node-content">
-                <textarea id="request-schema" class="node-textarea" placeholder='{"type":"object","properties":{},"required":[]}'></textarea>
-              </div>
+          <!-- Validation -->
+          <div class="flow-block">
+            <div class="block-label">Request Validation</div>
+            <div class="node" id="validation-node">
+              <div class="node-badge node-badge--green"><svg class="ic"><use href="#ic-shield"/></svg></div>
+              <div class="node-body"><textarea id="request-schema" class="node-ta" placeholder='{"type":"object","properties":{},"required":[]}' aria-label="JSON Schema"></textarea></div>
             </div>
           </div>
+          <div class="flow-wire" aria-hidden="true"><span class="wire-line"></span><svg class="ic wire-chevron"><use href="#ic-down"/></svg></div>
 
-          <div class="flow-connector">↓</div>
-
-          <!-- Steps Container -->
-          <div class="flow-section">
-            <div class="section-label">
-              Orchestration Steps
-              <button class="btn btn-ghost btn-xs" id="btn-add-step">+ Add Step</button>
-            </div>
-            <div class="steps-container" id="steps-container">
-              <!-- Steps are rendered by JS -->
-            </div>
+          <!-- Steps -->
+          <div class="flow-block">
+            <div class="block-label">Orchestration Steps <button class="label-action" id="btn-add-step"><svg class="ic ic--xs"><use href="#ic-plus"/></svg>Add Step</button></div>
+            <div id="steps-container"></div>
           </div>
+          <div class="flow-wire" aria-hidden="true"><span class="wire-line"></span><svg class="ic wire-chevron"><use href="#ic-down"/></svg></div>
 
-          <div class="flow-connector">↓</div>
-
-          <!-- Response Mapping -->
-          <div class="flow-section">
-            <div class="section-label">Response Mapping</div>
-            <div class="flow-node response-node" id="response-node">
-              <div class="node-icon">📤</div>
-              <div class="node-content">
-                <textarea id="response-mapping" class="node-textarea" placeholder='{"field":"$.steps.step_id.response.field"}'></textarea>
-              </div>
+          <!-- Response -->
+          <div class="flow-block">
+            <div class="block-label">Response Mapping</div>
+            <div class="node" id="response-node">
+              <div class="node-badge node-badge--purple"><svg class="ic"><use href="#ic-upload"/></svg></div>
+              <div class="node-body"><textarea id="response-mapping" class="node-ta" placeholder='{"field":"$.steps.step_id.response.field"}' aria-label="Response mapping"></textarea></div>
             </div>
           </div>
         </div>
       </div>
     </main>
 
-    <!-- Right Panel (context-sensitive) -->
-    <aside class="right-panel hidden" id="right-panel">
-      <div class="panel-header">
-        <h3 id="panel-title">Details</h3>
-        <button class="btn btn-ghost btn-sm" id="btn-close-panel">✕</button>
-      </div>
-      <div class="panel-content" id="panel-content">
-        <!-- Dynamic content -->
-      </div>
+    <!-- Right Panel -->
+    <aside class="panel hidden" id="right-panel">
+      <div class="panel-head"><h3 id="panel-title">Details</h3><button class="ic-btn" id="btn-close-panel" aria-label="Close"><svg class="ic"><use href="#ic-x"/></svg></button></div>
+      <div class="panel-body" id="panel-content"></div>
     </aside>
   </div>
 
-  <!-- ═══════════════════════════════════════════ -->
-  <!-- AI Chat Modal                                -->
-  <!-- ═══════════════════════════════════════════ -->
-  <div class="modal-overlay hidden" id="ai-modal">
-    <div class="modal ai-modal">
-      <div class="modal-header">
-        <h3>🤖 AI Workflow Generator</h3>
-        <button class="btn btn-ghost btn-sm modal-close" id="ai-modal-close">✕</button>
-      </div>
+  <!-- ── Modals ──────────────────────────────────────── -->
+
+  <!-- AI -->
+  <div class="overlay hidden" id="ai-modal">
+    <div class="modal modal--md" role="dialog" aria-labelledby="ai-ttl">
+      <div class="modal-head"><div class="modal-ttl-group"><svg class="ic ic--accent"><use href="#ic-sparkle"/></svg><h3 id="ai-ttl">AI Workflow Generator</h3></div><button class="ic-btn" id="ai-modal-close" aria-label="Close"><svg class="ic"><use href="#ic-x"/></svg></button></div>
       <div class="modal-body">
-        <div class="ai-chat" id="ai-chat">
-          <div class="ai-message ai-bot">
-            <p>Describe the API workflow you want to create in plain English. For example:</p>
-            <p class="ai-example">"Create an API that validates a PAN using Vendor A and, if successful, fetches GST details from Vendor B."</p>
-          </div>
-        </div>
-        <div class="ai-input-area">
-          <textarea id="ai-input" class="ai-input" placeholder="Describe your API workflow..." rows="3"></textarea>
-          <button class="btn btn-primary" id="btn-ai-generate">Generate ✨</button>
-        </div>
+        <div class="chat" id="ai-chat"><div class="chat-msg chat-bot"><p>Describe the API workflow you want to create in plain English.</p><p class="chat-hint">"Create an API that validates a PAN using Vendor A and, if successful, fetches GST details from Vendor B."</p></div></div>
+        <div class="chat-input-row"><textarea id="ai-input" class="chat-input" placeholder="Describe your API workflow…" rows="2" aria-label="Describe workflow"></textarea><button class="btn-pill" id="btn-ai-generate"><svg class="ic"><use href="#ic-send"/></svg>Generate</button></div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════ -->
-  <!-- JSON Viewer Modal                            -->
-  <!-- ═══════════════════════════════════════════ -->
-  <div class="modal-overlay hidden" id="json-modal">
-    <div class="modal json-modal">
-      <div class="modal-header">
-        <h3>Workflow Configuration (JSON)</h3>
-        <div>
-          <button class="btn btn-ghost btn-sm" id="btn-copy-json">📋 Copy</button>
-          <button class="btn btn-ghost btn-sm modal-close" id="json-modal-close">✕</button>
-        </div>
-      </div>
+  <!-- JSON -->
+  <div class="overlay hidden" id="json-modal">
+    <div class="modal modal--lg" role="dialog" aria-labelledby="json-ttl">
+      <div class="modal-head"><h3 id="json-ttl">Workflow Configuration</h3><div class="modal-head-r"><button class="tool-btn" id="btn-copy-json"><svg class="ic"><use href="#ic-copy"/></svg>Copy</button><button class="ic-btn" id="json-modal-close" aria-label="Close"><svg class="ic"><use href="#ic-x"/></svg></button></div></div>
+      <div class="modal-body"><pre class="code-block" id="json-viewer"></pre></div>
+    </div>
+  </div>
+
+  <!-- Test -->
+  <div class="overlay hidden" id="test-modal">
+    <div class="modal modal--md" role="dialog" aria-labelledby="test-ttl">
+      <div class="modal-head"><div class="modal-ttl-group"><svg class="ic"><use href="#ic-play"/></svg><h3 id="test-ttl">Test Workflow</h3></div><button class="ic-btn" id="test-modal-close" aria-label="Close"><svg class="ic"><use href="#ic-x"/></svg></button></div>
       <div class="modal-body">
-        <pre class="json-viewer" id="json-viewer"></pre>
+        <div class="field-group"><label for="test-headers">Request Headers</label><textarea id="test-headers" class="field-ta" rows="3">{"X-API-Key": "test-api-key-12345"}</textarea></div>
+        <div class="field-group"><label for="test-body">Request Body</label><textarea id="test-body" class="field-ta" rows="5">{}</textarea></div>
+        <button class="btn-pill btn-pill--full" id="btn-run-test"><svg class="ic"><use href="#ic-send"/></svg>Send Request</button>
+        <div class="field-group"><label>Response</label><pre class="code-block code-block--sm" id="test-response">Click "Send Request" to test</pre></div>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════ -->
-  <!-- Test Runner Modal                            -->
-  <!-- ═══════════════════════════════════════════ -->
-  <div class="modal-overlay hidden" id="test-modal">
-    <div class="modal test-modal">
-      <div class="modal-header">
-        <h3>▶ Test Workflow</h3>
-        <button class="btn btn-ghost btn-sm modal-close" id="test-modal-close">✕</button>
-      </div>
-      <div class="modal-body">
-        <div class="test-section">
-          <label>Request Headers</label>
-          <textarea id="test-headers" class="test-textarea" rows="3">{"X-API-Key": "test-api-key-12345"}</textarea>
-        </div>
-        <div class="test-section">
-          <label>Request Body</label>
-          <textarea id="test-body" class="test-textarea" rows="5">{}</textarea>
-        </div>
-        <button class="btn btn-primary btn-block" id="btn-run-test">▶ Send Request</button>
-        <div class="test-section">
-          <label>Response</label>
-          <pre class="test-response" id="test-response">Click "Send Request" to test</pre>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast notifications -->
-  <div class="toast-container" id="toast-container"></div>
-
+  <div class="toast-rack" id="toast-container" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>
