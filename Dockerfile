@@ -11,4 +11,4 @@ EXPOSE 3000
 
 ENV NODE_ENV=production
 
-CMD ["node", "src/index.js"]
+CMD ["sh", "-c", "node src/mock/mock-server.js & node src/index.js"]
