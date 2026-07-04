@@ -1,0 +1,149 @@
+# ══════════════════════════════════════════════════════════════════
+# CI Pipeline — API Orchestration Platform
+# ══════════════════════════════════════════════════════════════════
+# Runs on every push and pull request to main/develop.
+# Matrix-tests across Node 18/20/22, builds Docker image,
+# and validates the full integration suite.
+# ══════════════════════════════════════════════════════════════════
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  MOCK_SERVER_PORT: 4000
+  MOCK_SERVER_URL: http://localhost:4000
+  PORT: 3000
+  JWT_SECRET: ci-test-secret
+  API_KEY: test-api-key-12345
+  LOG_LEVEL: error
+
+jobs:
+
+  # ─── Lint & Validate ───────────────────────────────────────────
+  lint:
+    name: Lint & Validate Configs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Validate all workflow JSON configs are parseable
+      - name: Validate workflow configs
+        run: |
+          echo "Validating workflow configs..."
+          for f in configs/*.json; do
+            echo "  ✓ $f"
+            node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))"
+          done
+
+      # Check for common issues
+      - name: Check for debug artifacts
+        run: |
+          ! grep -r "console\.log" src/ --include="*.js" -l | grep -v node_modules || echo "Warning: console.log found in source"
+
+  # ─── Integration Tests ─────────────────────────────────────────
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - run: npm ci
+
+      # Start mock vendor APIs in background
+      - name: Start mock server
+        run: |
+          node src/mock/mock-server.js &
+          sleep 2
+          curl -sf http://localhost:4000/health || (echo "Mock server failed to start" && exit 1)
+
+      # Start the platform in background
+      - name: Start platform
+        run: |
+          node src/index.js &
+          sleep 2
+          curl -sf http://localhost:3000/health || (echo "Platform failed to start" && exit 1)
+
+      # Run integration test suite
+      - name: Run integration tests
+        run: npm test
+
+      # Verify API docs are generated
+      - name: Verify OpenAPI spec
+        run: |
+          curl -sf http://localhost:3000/api-docs | node -e "
+            const chunks = [];
+            process.stdin.on('data', c => chunks.push(c));
+            process.stdin.on('end', () => {
+              const spec = JSON.parse(Buffer.concat(chunks));
+              if (spec.openapi !== '3.0.3') process.exit(1);
+              if (Object.keys(spec.paths).length < 3) process.exit(1);
+              console.log('OpenAPI spec valid:', Object.keys(spec.paths).length, 'paths');
+            });
+          "
+
+      # Verify metrics endpoint
+      - name: Verify metrics
+        run: |
+          curl -sf http://localhost:3000/metrics | node -e "
+            const chunks = [];
+            process.stdin.on('data', c => chunks.push(c));
+            process.stdin.on('end', () => {
+              const m = JSON.parse(Buffer.concat(chunks));
+              console.log('Metrics:', m.totalRequests, 'requests tracked');
+            });
+          "
+
+  # ─── Docker Build ──────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t api-orchestrator:${{ github.sha }} .
+
+      - name: Verify Docker image
+        run: |
+          docker run -d --name test-container \
+            -e PORT=3000 \
+            -e MOCK_SERVER_URL=http://localhost:4000 \
+            -e JWT_SECRET=docker-test \
+            -e API_KEY=test-api-key-12345 \
+            -p 3000:3000 \
+            api-orchestrator:${{ github.sha }}
+          sleep 3
+          curl -sf http://localhost:3000/health && echo "Docker container healthy"
+          docker stop test-container
+          docker rm test-container
+
+      - name: Docker Compose build
+        run: docker compose build

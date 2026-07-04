@@ -1,5 +1,8 @@
 # Low-Code API Orchestration Platform
 
+![CI](https://github.com/Palvash-kumar/Signzy-Intern-Assignment-1/actions/workflows/ci.yml/badge.svg)
+![CD](https://github.com/Palvash-kumar/Signzy-Intern-Assignment-1/actions/workflows/cd.yml/badge.svg)
+
 A **configuration-driven API orchestration platform** that allows users to expose their own REST APIs without writing business logic for each integration. Define an API using JSON configuration, map request and response fields, invoke one or more downstream APIs, transform data, and return standardized responses — all without changing application code.
 
 ## Architecture
@@ -271,8 +274,9 @@ npm test
 | Logging | Winston | Structured, levels, formats |
 | Config | JSON files | Zero-dependency, versionable |
 | Frontend | Vanilla HTML/CSS/JS | No build step, no bloat |
-| AI | Google Gemini API | Natural language → config |
+| AI | Gemini / Groq / OpenAI | Multi-provider, switchable via env |
 | Container | Docker + Compose | Production-ready |
+| CI/CD | GitHub Actions | Lint → Test → Build → Deploy |
 
 ## Project Structure
 
@@ -311,8 +315,61 @@ npm test
 │       └── resolver.js        # JSONPath-like resolver
 ├── test/
 │   └── run.js                 # Integration tests
+├── .github/workflows/
+│   ├── ci.yml                 # CI: Lint → Test (Node 18/20/22) → Docker Build
+│   └── cd.yml                 # CD: Publish to GHCR → Deploy staging/production
 ├── Dockerfile
 ├── docker-compose.yml
 ├── package.json
 └── .env
 ```
+
+## CI/CD Pipeline
+
+The project includes a professional GitHub Actions CI/CD pipeline with two workflows:
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+
+Triggers on every push to `main`/`develop` and all pull requests.
+
+```
+┌──────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+│  Lint &      │────▶│  Integration Tests   │────▶│  Docker Build    │
+│  Validate    │     │  (Node 18, 20, 22)   │     │  Verification    │
+│  Configs     │     │  + OpenAPI + Metrics  │     │                  │
+└──────────────┘     └──────────────────────┘     └──────────────────┘
+```
+
+| Stage | What it does |
+|-------|-------------|
+| **Lint** | Validates all JSON workflow configs are parseable, checks for debug artifacts |
+| **Test** | Matrix tests across Node 18/20/22. Starts mock server + platform, runs full integration suite, verifies OpenAPI spec and metrics endpoint |
+| **Docker** | Builds Docker image, spins up a container, validates health check, verifies `docker compose build` |
+
+### CD Pipeline (`.github/workflows/cd.yml`)
+
+Triggers on pushes to `main` (staging) and version tags `v*` (production).
+
+```
+┌──────────────┐     ┌──────────────────────┐     ┌──────────────────┐
+│  Build &     │────▶│  Deploy to Staging   │     │  Deploy to       │
+│  Push to     │     │  (on main push)      │     │  Production      │
+│  GHCR        │     └──────────────────────┘     │  (on v* tag)     │
+└──────────────┘                                   └──────────────────┘
+```
+
+| Stage | Trigger | What it does |
+|-------|---------|-------------|
+| **Publish** | `main` push or `v*` tag | Builds Docker image, pushes to GitHub Container Registry with semantic version tags |
+| **Staging** | `main` push | Deploys latest image to staging environment |
+| **Production** | `v*` tag (e.g. `v1.0.0`) | Deploys tagged image to production environment |
+
+### Creating a Release
+
+```bash
+# Tag a version and push
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+This triggers: CI tests → Docker build → Push to GHCR → Production deploy.
