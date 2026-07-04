@@ -62,7 +62,7 @@ async function callGemini(prompt) {
   const isGroq = LLM_PROVIDER === 'groq';
   const apiKey = isGroq ? process.env.GROQ_API_KEY : process.env.OPENAI_API_KEY;
   const model = isGroq 
-    ? (process.env.GROQ_MODEL || 'llama-3.3-70b-specdec') 
+    ? (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile') 
     : (process.env.OPENAI_MODEL || 'gpt-4o-mini');
   const url = isGroq 
     ? 'https://api.groq.com/openai/v1/chat/completions' 
