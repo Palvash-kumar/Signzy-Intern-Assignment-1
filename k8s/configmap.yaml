@@ -7,3 +7,5 @@ data:
   MOCK_SERVER_URL: "http://mock-server:4000"
   LOG_LEVEL: "info"
   NODE_ENV: "production"
+  GROQ_MODEL: "llama-3.3-70b-versatile"
+
