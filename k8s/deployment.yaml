@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-orchestrator
+  labels:
+    app: api-orchestrator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-orchestrator
+  template:
+    metadata:
+      labels:
+        app: api-orchestrator
+    spec:
+      containers:
+        - name: api-orchestrator
+          image: ghcr.io/palvash-kumar/api-orchestrator:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: api-orchestrator-config
+            - secretRef:
+                name: api-orchestrator-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: configs
+              mountPath: /app/configs
+              readOnly: true
+      volumes:
+        - name: configs
+          configMap:
+            name: api-orchestrator-workflows
+            optional: true

@@ -8,6 +8,7 @@ const { invoke } = require('./invoker');
 const { evaluateCondition, resolve } = require('../utils/resolver');
 const cache = require('./cache');
 const logger = require('../utils/logger');
+const plugins = require('./plugin-loader');
 
 /**
  * Execute a complete workflow.
@@ -48,7 +49,11 @@ async function execute(workflow, requestBody, requestHeaders, correlationId) {
       status: 'success'
     });
 
-    return { statusCode, body: responseBody, executionLog };
+    const result = { statusCode, body: responseBody, executionLog };
+
+    // Plugin hook: beforeResponse
+    const transformed = await plugins.runHook('beforeResponse', result, context, correlationId);
+    return transformed || result;
   } catch (err) {
     executionLog.push({
       type: 'workflow_error',
@@ -73,6 +78,9 @@ async function executeStep(step, context, correlationId, executionLog) {
   logger.info(`Executing step: ${step.id} (type: ${step.type || 'api_call'})`, { correlationId });
 
   try {
+    // Plugin hook: beforeStep
+    await plugins.runHook('beforeStep', step, context, correlationId);
+
     let result;
 
     switch (step.type) {
@@ -98,6 +106,9 @@ async function executeStep(step, context, correlationId, executionLog) {
       status: 'success'
     });
 
+    // Plugin hook: afterStep
+    await plugins.runHook('afterStep', step, result, context, correlationId);
+
     logger.info(`Step ${step.id} completed in ${duration}ms`, { correlationId });
     return result;
   } catch (err) {
@@ -109,6 +120,9 @@ async function executeStep(step, context, correlationId, executionLog) {
       status: 'error',
       error: err.message
     });
+    // Plugin hook: onError
+    await plugins.runHook('onError', step, err, context, correlationId);
+
     logger.error(`Step ${step.id} failed: ${err.message}`, { correlationId });
     throw err;
   }

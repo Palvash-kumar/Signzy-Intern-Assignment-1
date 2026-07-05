@@ -31,6 +31,8 @@ async function run() {
     const res = await fetch(`${PLATFORM}/health`);
     const data = await res.json();
     assert.strictEqual(data.status, 'ok');
+    assert.ok(data.plugins !== undefined, 'health should report plugin count');
+    assert.ok(data.schedules !== undefined, 'health should report schedule count');
   });
 
   await test('GET /metrics returns stats', async () => {
@@ -85,6 +87,36 @@ async function run() {
       body: JSON.stringify({ pan_number: 'ABCDE1234F' })
     });
     assert.strictEqual(res.status, 401);
+  });
+
+  // ── Versioned API ─────────────────────────────────────
+  console.log('\nVersioned APIs:');
+
+  await test('Versioned route /v1/verify-pan works', async () => {
+    const res = await fetch(`${PLATFORM}/v1/verify-pan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+      body: JSON.stringify({ pan_number: 'ABCDE1234F' })
+    });
+    const data = await res.json();
+    assert.ok(data.success);
+    assert.ok(data.meta.version);
+  });
+
+  await test('GET /api/workflows/:id/versions returns versions', async () => {
+    const res = await fetch(`${PLATFORM}/api/workflows/verify-pan/versions`);
+    const data = await res.json();
+    assert.ok(data.success);
+    assert.ok(data.data.length >= 1);
+    assert.ok(data.data[0].version);
+  });
+
+  await test('OpenAPI spec includes versioned paths', async () => {
+    const res = await fetch(`${PLATFORM}/api-docs`);
+    const data = await res.json();
+    const paths = Object.keys(data.paths);
+    const hasVersioned = paths.some(p => p.startsWith('/v1/'));
+    assert.ok(hasVersioned, 'Should have versioned paths like /v1/...');
   });
 
   // ── Aadhaar Validation ────────────────────────────────
@@ -161,6 +193,73 @@ async function run() {
     const res = await fetch(`${PLATFORM}/api/workflows/test-workflow`, { method: 'DELETE' });
     const data = await res.json();
     assert.ok(data.success);
+  });
+
+  // ── Schedules ─────────────────────────────────────────
+  console.log('\nScheduled Execution:');
+
+  await test('GET /api/schedules returns list', async () => {
+    const res = await fetch(`${PLATFORM}/api/schedules`);
+    const data = await res.json();
+    assert.ok(data.success);
+    assert.ok(Array.isArray(data.data));
+  });
+
+  await test('POST /api/schedules creates a schedule', async () => {
+    const res = await fetch(`${PLATFORM}/api/schedules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'test-schedule',
+        workflowId: 'verify-pan',
+        cron: '*/5 * * * *',
+        payload: { pan_number: 'ABCDE1234F' }
+      })
+    });
+    const data = await res.json();
+    assert.ok(data.success);
+    assert.strictEqual(data.data.id, 'test-schedule');
+  });
+
+  await test('DELETE /api/schedules/:id stops a schedule', async () => {
+    const res = await fetch(`${PLATFORM}/api/schedules/test-schedule`, { method: 'DELETE' });
+    const data = await res.json();
+    assert.ok(data.success);
+  });
+
+  await test('POST /api/schedules rejects invalid cron', async () => {
+    const res = await fetch(`${PLATFORM}/api/schedules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: 'bad-schedule',
+        workflowId: 'verify-pan',
+        cron: 'not a cron'
+      })
+    });
+    assert.strictEqual(res.status, 400);
+  });
+
+  // ── Plugins ───────────────────────────────────────────
+  console.log('\nPlugin Architecture:');
+
+  await test('GET /api/plugins returns loaded plugins', async () => {
+    const res = await fetch(`${PLATFORM}/api/plugins`);
+    const data = await res.json();
+    assert.ok(data.success);
+    assert.ok(Array.isArray(data.data));
+    assert.ok(data.data.length >= 2, 'Should have at least request-logger and field-masker plugins');
+  });
+
+  await test('Plugins have name, version, and hooks', async () => {
+    const res = await fetch(`${PLATFORM}/api/plugins`);
+    const data = await res.json();
+    const logger = data.data.find(p => p.name === 'request-logger');
+    assert.ok(logger, 'request-logger plugin should be loaded');
+    assert.ok(logger.hooks.length > 0, 'Should have hooks registered');
+
+    const masker = data.data.find(p => p.name === 'field-masker');
+    assert.ok(masker, 'field-masker plugin should be loaded');
   });
 
   // ── Summary ───────────────────────────────────────────

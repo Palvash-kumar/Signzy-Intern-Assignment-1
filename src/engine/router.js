@@ -1,6 +1,7 @@
 /**
  * Dynamic Router — registers Express routes from workflow configs.
- * Each workflow config becomes a live API endpoint. Supports hot-reload.
+ * Each workflow config becomes a live API endpoint. Supports hot-reload
+ * and versioned routing (/v1/path, /v2/path).
  */
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
@@ -22,8 +23,27 @@ function createDynamicRouter() {
   // Load all workflow configs
   const workflows = configLoader.loadAll();
 
-  // Register each workflow as a route
-  for (const [id, workflow] of workflows) {
+  // Register each workflow (all versions)
+  const allConfigs = configLoader.getAllVersioned();
+  const latestIds = new Set();
+
+  for (const workflow of allConfigs) {
+    const ver = workflow.version || '1.0';
+    const majorVer = ver.split('.')[0];
+
+    // Register versioned route: /v1/verify-pan
+    registerRoute(router, workflow, `/v${majorVer}`);
+
+    // Track latest version per workflow id for unversioned route
+    const existing = latestIds.get?.(workflow.id);
+    if (!existing || _isNewer(ver, existing.version)) {
+      latestIds.add(workflow.id);
+    }
+  }
+
+  // Register unversioned routes (point to latest version)
+  const latestConfigs = configLoader.getAll();
+  for (const workflow of latestConfigs) {
     registerRoute(router, workflow);
   }
 
@@ -38,25 +58,32 @@ function createDynamicRouter() {
 
 /**
  * Register a single workflow as an Express route.
+ * @param {express.Router} router
+ * @param {object} workflow
+ * @param {string} [prefix] - Optional version prefix like "/v1"
  */
-function registerRoute(router, workflow) {
+function registerRoute(router, workflow, prefix = '') {
   const { method, path: routePath } = workflow.endpoint;
   const httpMethod = method.toLowerCase();
+  const fullPath = prefix + routePath;
 
-  logger.info(`Registering route: ${method} ${routePath} → workflow "${workflow.id}"`);
+  logger.info(`Registering route: ${method} ${fullPath} → workflow "${workflow.id}@${workflow.version || '1.0'}"`);
 
-  router[httpMethod](routePath, async (req, res) => {
+  router[httpMethod](fullPath, async (req, res) => {
     const correlationId = req.headers['x-correlation-id'] || uuidv4();
     const startTime = Date.now();
 
-    logger.info(`Request received: ${method} ${routePath}`, {
+    logger.info(`Request received: ${method} ${fullPath}`, {
       correlationId,
       workflowId: workflow.id
     });
 
     try {
-      // Re-read config in case it was hot-reloaded
-      const currentWorkflow = configLoader.get(workflow.id) || workflow;
+      // Determine which version to use
+      const requestedVersion = _extractVersion(req.path, routePath);
+      const currentWorkflow = requestedVersion
+        ? configLoader.get(workflow.id, requestedVersion) || workflow
+        : configLoader.get(workflow.id) || workflow;
 
       // 1. Validate request
       const validation = validateRequest(req.body, currentWorkflow.request?.schema);
@@ -116,6 +143,27 @@ function registerRoute(router, workflow) {
       });
     }
   });
+}
+
+/**
+ * Extract version number from a versioned path.
+ * E.g., "/v2/verify-pan" with base "/verify-pan" → "2.0"
+ */
+function _extractVersion(fullPath, basePath) {
+  const match = fullPath.match(/^\/v(\d+)/);
+  if (!match) return null;
+  return `${match[1]}.0`;
+}
+
+/** Compare semver strings */
+function _isNewer(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff > 0;
+  }
+  return false;
 }
 
 module.exports = { createDynamicRouter };

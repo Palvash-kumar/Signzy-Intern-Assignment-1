@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-orchestrator-config
+data:
+  PORT: "3000"
+  MOCK_SERVER_URL: "http://mock-server:4000"
+  LOG_LEVEL: "info"
+  NODE_ENV: "production"
